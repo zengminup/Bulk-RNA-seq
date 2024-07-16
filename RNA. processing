@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# 2.mapping
+cd './fastq'
+if [ ! -d ../mapping ]
+then
+	mkdir ../mapping
+fi
+
+ls *.R1.fq.gz |while read id
+do
+    headname=${id%.R1.fq.gz} 
+    hisat2 -p 40 --dta -x /data/labShare/Sequencing/GENOME/hisat2/grcm38_tran -1 ${headname}.R1.fq.gz -2 ${headname}.R2.fq.gz -S ../mapping/${headname}.sam
+done
+#grcm38 file location
+
+
+# 3.SamToBam & filter low-quality mapping
+cd '../mapping'
+ls *sam |while read id
+do
+    samtools view -@ 40 -b -F 4 -S ${id} -o ./${id%.sam}.bam
+    samtools sort -@ 40 ./${id%.sam}.bam -o ./${id%.sam}.sorted.bam
+	rm ${id}
+	samtools index ./${id%.sam}.sorted.bam
+done
+
+# 4.counting
+if [ ! -d ../count ]
+then
+	mkdir ../count
+fi
+
+featureCounts -T 40 -p -t exon -g gene_id --extraAttributes gene_name,gene_biotype -a /data/labShare/Sequencing/GENOME/hisat2/Mus_musculus.GRCm38.94.chr.gtf -o ../count/AllCount.txt *.sorted.bam
+
+
